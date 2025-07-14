@@ -104,8 +104,7 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
   local msize = { A = oldmatrix.Size.A, B = oldmatrix.Size.B }
   local midentity = createIdentityMatrix(msize.A) -- A or B doesn't matter bc it's squared
 
-  if mclone:isSingular() then error("Matrix is singular, and thus indivisible") end
-
+  
   for i = 1, msize.A do
     -- Find pivot (diagonal of '1's) (One 1 per column so we can search recursively and stuff)
     local pivot_point = mclone.Contents[i][i]
@@ -123,6 +122,8 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
       end
     end
 
+    if pivot_point==0 then error("Matrix is singular, and thus indivisible") end
+    
     -- Step 2 aaaaaa
     -- Make pivot point equal to 1 by dividing every value in the row by the pivot point value
     for j = 1, msize.A do
@@ -317,7 +318,7 @@ local function unary_minus_method(t)
 end
 
 local function add_method(t, value)
-  if not find(allowedTypes, type(value)) then
+  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -356,7 +357,7 @@ local function add_method(t, value)
 end
 
 local function sub_method(t, value)
-  if not find(allowedTypes, type(value)) then
+  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -390,7 +391,7 @@ local function sub_method(t, value)
 end
 
 local function mul_method(t, value)
-  if not find(allowedTypes, type(value)) then
+  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -445,7 +446,7 @@ end
 
 local function div_method(t, value)
   if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
-  if not find(allowedTypes, type(value)) then
+  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -494,7 +495,7 @@ end
 
 local function idiv_method(t, value)
   if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
-  if not find(allowedTypes, type(value)) then
+  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
