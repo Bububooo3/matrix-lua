@@ -7,8 +7,9 @@
 -- Matrix Class Library
 local matrix = {}
 local className = "Matrix"
-
---[[
+local emergency_metatable = function(matrix)
+  print("Sorry, the metamethods function has not been initialized yet!")
+end
 
 -- Matrix DataType Info --
 
@@ -34,10 +35,10 @@ local properties = {
   "isSingular",
   "isInvertible",
   "find",
-  "insertRow", ----> Experimental
+  "insertRow",    ----> Experimental
   "insertColumn", ----> Doesn't work
 }
-]]
+
 
 local allowedTypes = {
   "number",
@@ -47,9 +48,7 @@ local allowedTypes = {
 local function find(haystack, needle, init)
   if not init then init = 1 end
   for i = init, #haystack do
-    if haystack[i] == needle then
-      return i
-    end
+    if haystack[i] == needle then return i end
   end
   return nil
 end
@@ -58,27 +57,20 @@ local function roundToDigits(value, digits, text)
   local startdigits = #tostring(math.floor(math.abs(value)))
   local decimals = math.max(0, digits - startdigits - 1) -- The 1 is to account for the '.' so the matrix looks pretty
   local mult = 10 ^ decimals
-  --print(value, math.floor(value*mult+0.5)/mult)
   local rounded = math.floor(value * mult + 0.5) / mult
 
-  if text then
-    return string.format("%." .. decimals .. "f", rounded)
-  else
-    return rounded
-  end
+  if text then return string.format("%." .. decimals .. "f", rounded) end
+  return rounded
 end
 
 local function cloneMatrix(oldmatrix)
   local copy = {}
-  copy.Size = {}
-  copy.Size.A = oldmatrix.Size.A
-  copy.Size.B = oldmatrix.Size.B
+  copy.Size = { A = oldmatrix.Size.A, B = oldmatrix.Size.B }
   copy.ClassName = className
   copy.Contents = {}
 
   for i, row in ipairs(oldmatrix.Contents) do
     copy.Contents[i] = {}
-
     for j, point in ipairs(row) do
       copy.Contents[i][j] = point
     end
@@ -98,22 +90,21 @@ local function createIdentityMatrix(n) --The one with all the ones and zeros
   for i = 1, n, 1 do
     identity.Contents[i] = {}
     for j = 1, n, 1 do
-      identity.Contents[i][j] = {}
-      identity.Contents[i][j].Value = (i == j) and 1 or 0 -- Just learned about this. It's pretty neat!
+      identity.Contents[i][j] = { Value = (i == j) and 1 or 0 } -- Just learned about this. It's pretty neat!
     end
   end
 
-  setmetatable(identity, {
-    __index = matrix,
-  })
 
-  return identity
+
+  return setmetatable(identity, { __index = matrix })
 end
 
 local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this stuff is useful, but I am going to have an aneurysm trying to code it)
   local mclone = cloneMatrix(oldmatrix)
-  local msize = { ["A"] = oldmatrix.Size.A, ["B"] = oldmatrix.Size.B }
+  local msize = { A = oldmatrix.Size.A, B = oldmatrix.Size.B }
   local midentity = createIdentityMatrix(msize.A) -- A or B doesn't matter bc it's squared
+
+  if mclone:isSingular() then error("Matrix is singular, and thus indivisible") end
 
   for i = 1, msize.A do
     -- Find pivot (diagonal of '1's) (One 1 per column so we can search recursively and stuff)
@@ -121,18 +112,14 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
 
     if pivot_point.Value == 0 then
       -- Cycle down the column
-      for j = i + 1, msize.A do
-        if mclone[j][i].Value ~= 0 then
-          -- Swap rows to have a nonzero pivot point (like an equation whatever we do to one side, we must also do to the other (identity matrix))
-          mclone.Contents[i], mclone.Contents[j] = mclone.Contents[j], mclone.Contents[i]
-          midentity.Contents[i], midentity.Contents[j] = midentity.Contents[j], midentity.Contents[i]
-          pivot_point = mclone.Contents[i][i]
-          break
-        end
-      end
-
-      if pivot_point.Value == 0 then
-        error("Matrix is not invertible, and thus indivisible")
+      for j = i + 1, msize.A do -- i+1 bc [i][i] is 0
+        if mclone.Contents[j][i].Value == 0 then goto continue end
+        -- Swap rows to have a nonzero pivot point (like an algebraic equation whatever we do to one side, we must also do to the other (identity matrix))
+        mclone.Contents[i], mclone.Contents[j] = mclone.Contents[j], mclone.Contents[i]
+        midentity.Contents[i], midentity.Contents[j] = midentity.Contents[j], midentity.Contents[i]
+        pivot_point = mclone.Contents[i][i]
+        break
+        ::continue::
       end
     end
 
@@ -147,22 +134,19 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
     -- Praying this works off rip (it DID NOT work off rip ;-;)
     -- Do the math on rows that aren't on the pivot
     for k = 1, msize.A do
-      if k ~= i then
-        local factor = mclone.Contents[k][i].Value
-        for j = 1, msize.A do
-          mclone.Contents[k][j].Value = mclone.Contents[k][j].Value - (factor * mclone.Contents[i][j].Value)
-          midentity.Contents[k][j].Value = midentity.Contents[k][j].Value - (factor * midentity.Contents[i][j].Value)
-        end
+      if k == i then goto continue end
+      local factor = mclone.Contents[k][i].Value
+      for j = 1, msize.A do
+        mclone.Contents[k][j].Value = mclone.Contents[k][j].Value - (factor * mclone.Contents[i][j].Value)
+        midentity.Contents[k][j].Value = midentity.Contents[k][j].Value - (factor * midentity.Contents[i][j].Value)
       end
+      ::continue::
     end
   end
 
   for y, row in ipairs(midentity.Contents) do
     for x, point in ipairs(row) do
-      point.Position = {
-        ["X"] = x,
-        ["Y"] = y
-      }
+      point.Position = { X = x, Y = y }
     end
   end
 
@@ -172,9 +156,7 @@ end
 
 local function transposeMatrix(oldmatrix) -- Basically rotate it
   local newMatrix = {}
-  newMatrix.Size = {}
-  newMatrix.Size.A = oldmatrix.Size.B
-  newMatrix.Size.B = oldmatrix.Size.A
+  newMatrix.Size = { A = oldmatrix.Size.B, B = oldmatrix.Size.A }
   newMatrix.ClassName = className
   newMatrix.Contents = {}
 
@@ -223,560 +205,601 @@ local function normalizeVector(vectr)
 end
 ]]
 
-local empty = { Maximum = 0, Minimum = 0 }
+-- METAMETHODS
+local function new_index_method(_, key, _)
+  if find(properties, key) then error("Unable to configure property " .. key .. ". Property is read only") end
+  error("Unable to configure property " .. tostring(key) .. ". Property does not exist")
+end
+
+local function length_method(t)
+  local points = 0
+  for _, row in ipairs(t.Contents) do
+    points = #row + points
+  end
+  return points
+end
+
+local matrix_metatable_str = "Matrix"
+
+local function call_method(t)
+  for _, row in ipairs(t.Contents) do
+    for _, point in ipairs(row) do
+      print("(" .. tostring(point.Position.X) .. ", " .. tostring(point.Position.Y) .. ") " .. tostring(point.Value))
+    end
+  end
+end
+
+local function concat_method(t, _)
+  local writtenTable = {}
+  local mostdigits = 0
+
+  for i = 1, t.Size.B, 1 do
+    for _, point in pairs(t.Contents[i]) do
+      if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
+    end
+  end
+
+  for i = 1, t.Size.B, 1 do
+    local currentRow = t.Contents[i]
+    local values = {}
+
+    for _, point in ipairs(currentRow) do
+      table.insert(values, point.Position.X, roundToDigits(point.Value, mostdigits, true))
+    end
+
+    writtenTable[i] = table.concat(values, ", ")
+  end
+
+  local resultant = ""
+
+  for i, row in ipairs(writtenTable) do
+    -- if i == 1 then
+    --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
+    -- elseif i == #writtenTable then
+    --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
+    -- else
+    --   resultant = resultant .. "\n| " .. row .. " |\n"
+    -- end
+
+    resultant = resultant .. "\n[ " .. row .. " ]\n"
+  end
+
+  return resultant
+end
+
+local function tostring_method(t)
+  local writtenTable = {}
+  local mostdigits = 0
+
+  for i = 1, t.Size.B, 1 do
+    for _, point in ipairs(t.Contents[i]) do
+      if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
+    end
+  end
+
+  for i = 1, t.Size.B, 1 do
+    local currentRow = t.Contents[i]
+    local values = {}
+
+    --print(mostdigits)
+    for _, point in ipairs(currentRow) do
+      table.insert(values, point.Position.X, roundToDigits(point.Value, mostdigits, true))
+    end
+
+    writtenTable[i] = table.concat(values, ", ")
+  end
+
+  local resultant = ""
+
+  for i, row in ipairs(writtenTable) do
+    -- if i == 1 then
+    --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
+    -- elseif i == #writtenTable then
+    --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
+    -- else
+    --   resultant = resultant .. "\n| " .. row .. " |\n"
+    -- end
+
+    resultant = resultant .. "\n[ " .. row .. " ]\n"
+  end
+
+  return resultant
+end
+
+local function unary_minus_method(t)
+  for i = 1, t.Size.B, 1 do
+    for _, point in ipairs(t.Contents[i]) do
+      point.Value = -point.Value
+    end
+  end
+
+  return t
+end
+
+local function add_method(t, value)
+  if not find(allowedTypes, type(value)) then
+    error("Attempt to perform arithmetic between Matrix and " ..
+      type(value))
+  end
+
+  if type(t) == "number" and getmetatable(value) == "Matrix" then
+    for i = 1, value.Size.B, 1 do
+      for _, point in ipairs(value.Contents[i]) do
+        point.Value = t + point.Value
+      end
+    end
+
+    return value
+  elseif getmetatable(value) == "Matrix" then
+    if type(value) == "number" then
+      for i = 1, t.Size.B, 1 do
+        for _, point in ipairs(t.Contents[i]) do
+          point.Value = value + point.Value
+        end
+      end
+
+      return t
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
+      if not (value.Size.A == t.Size.A and value.Size.B == t.Size.B) then
+        error(
+          "Terminated attempt to perform arithmetic between Matrices of different proportions")
+      end
+      for i = 1, t.Size.B, 1 do
+        for j, point in ipairs(t.Contents[i]) do
+          point.Value = value.Contents[i][j].Value + point.Value
+        end
+      end
+      return t
+    end
+  end
+end
+
+local function sub_method(t, value)
+  if not find(allowedTypes, type(value)) then
+    error("Attempt to perform arithmetic between Matrix and " ..
+      type(value))
+  end
+
+  if getmetatable(t) == "Matrix" then
+    if type(value) == "number" then
+      for i = 1, t.Size.B, 1 do
+        for _, point in ipairs(t.Contents[i]) do
+          point.Value = point.Value - value
+        end
+      end
+
+      return t
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
+      if not (value.Size.A == t.Size.A and value.Size.B == t.Size.B) then
+        error(
+          "Terminated attempt to perform arithmetic between Matrices of different proportions")
+      end
+      for i = 1, t.Size.B, 1 do
+        for j, point in ipairs(t.Contents[i]) do
+          point.Value = point.Value - value.Contents[i][j].Value
+        end
+      end
+
+      return t
+    end
+  elseif type(t) == "number" then
+    error("Attempt to subtract a Matrix from a Scalar")
+  end
+end
+
+local function mul_method(t, value)
+  if not find(allowedTypes, type(value)) then
+    error("Attempt to perform arithmetic between Matrix and " ..
+      type(value))
+  end
+  if getmetatable(t) == "Matrix" then
+    if type(value) == "number" then
+      for i = 1, t.Size.B, 1 do
+        for _, point in ipairs(t.Contents[i]) do
+          point.Value = point.Value * value
+        end
+      end
+
+      return t
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
+      if not (t.Size.A == value.Size.B) then
+        error(
+          "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
+      end
+
+      local resultMatrix = { Size = { A = t.Size.A, B = value.Size.B }, Contents = {}, ClassName = className }
+
+      for i = 1, t.Size.A do
+        local currentRow = t.Contents[i]
+
+        for j = 1, value.Size.B, 1 do
+          local sum = 0
+
+          for k = 1, t.Size.A, 1 do
+            sum = currentRow[k].Value * value.Contents[k][j].Value + sum
+          end
+
+          -- need a result matrix
+          if not (resultMatrix.Contents[i]) then resultMatrix.Contents[i] = {} end
+          if not (resultMatrix.Contents[i][j]) then
+            resultMatrix.Contents[i][j] = { Value = sum, Position = { X = j, Y = i } }
+          end
+        end
+      end
+
+      return emergency_metatable(resultMatrix)
+    end
+  elseif type(t) == "number" then
+    for i = 1, value.Size.B, 1 do
+      for _, point in ipairs(value.Contents[i]) do
+        point.Value = point.Value * t
+      end
+    end
+  else
+    error("Attempt to perform arithmetic between Matrix and " .. type(value))
+  end
+end
+
+local function div_method(t, value)
+  if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
+  if not find(allowedTypes, type(value)) then
+    error("Attempt to perform arithmetic between Matrix and " ..
+      type(value))
+  end
+  if type(value) == "number" then
+    for i = 1, t.Size.B, 1 do
+      for _, point in ipairs(t.Contents[i]) do
+        point.Value = point.Value / value
+      end
+    end
+
+    return t
+  elseif getmetatable(value) == "Matrix" then
+    if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
+    -- multiply the left matrix by the inverse of the right matrix [table * inverse(value)]
+    if not (t.Size.A == value.Size.A) then
+      error(
+        "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
+    end                                  -- bc it will be the inverse size that has to be equal
+    if value.Size.A == value.Size.B then -- Do Gauss-Jordan
+      local invertedMatrix = emergency_metatable(invertMatrix(value))
+      local quotient = t * invertedMatrix
+      return quotient
+    else -- Maybe try using Moore-Penrose sometime ;-;
+      -- I don't completely understand WHY it works (like all the math behind this equation), but I do know that it works so I'll use it
+      -- Have to do pseudoinversion here bc metamethods are needed
+      local matrix_t = emergency_metatable(transposeMatrix(value)) -- To get full row/column rank
+
+      if value.Size.B >= value.Size.A then                         -- If #rows >= #columns (tall) [Order matters]
+        -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
+        -- matrix_t*matrix aka Mt * M aka MtM
+        local MtM = matrix_t * matrix
+        local invMtM = emergency_metatable(invertMatrix(MtM))
+
+        return invMtM * matrix_t
+      else -- If #columns > #rows (wide)
+        -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
+        -- matrix*matrix_t aka M * Mt aka Mt
+        local MMt = matrix * matrix_t
+        local invMMt = emergency_metatable(invertMatrix(MMt))
+
+        return matrix_t * invMMt
+      end
+    end
+  end
+end
+
+local function idiv_method(t, value)
+  if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
+  if not find(allowedTypes, type(value)) then
+    error("Attempt to perform arithmetic between Matrix and " ..
+      type(value))
+  end
+  if type(value) == "number" then
+    for i = 1, t.Size.B, 1 do
+      for _, point in ipairs(t.Contents[i]) do
+        point.Value = math.floor(point.Value / value)
+      end
+    end
+
+    return t
+  elseif getmetatable(value) == "Matrix" then
+    if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
+    -- multiply the left matrix by the inverse of the right matrix [table * inverse(value)]
+    if not (t.Size.A == value.Size.A) then
+      error(
+        "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
+    end                                  -- bc it will be the inverse size that has to be equal
+    if value.Size.A == value.Size.B then -- Do Gauss-Jordan
+      local invertedMatrix = emergency_metatable(invertMatrix(value))
+      local quotient = t * invertedMatrix
+
+      for _, row in ipairs(quotient.Contents) do
+        for _, point in ipairs(row) do
+          point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
+          ---@diagnostic disable-next-line: param-type-mismatch
+          point.Value = math.abs(point.Value) -- prevent -0 ^^^ so annoying
+        end
+      end
+
+      return quotient
+    else -- Maybe try using Moore-Penrose sometime ;-;
+      -- I don't completely understand WHY it works (like all the math behind this equation), but I do know that it works so I'll use it
+      -- Have to do pseudoinversion here bc metamethods are needed
+
+      local matrix_t = emergency_metatable(transposeMatrix(value)) -- To get full row/column rank
+
+      if value.Size.B >= value.Size.A then                         -- If #rows >= #columns (tall) [Order matters]
+        -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
+        -- matrix_t*matrix aka Mt * M aka MtM
+        local MtM = matrix_t * matrix
+        local invMtM = emergency_metatable(invertMatrix(MtM))
+
+        local raw_matrix = invMtM * matrix_t
+
+        for _, row in ipairs(raw_matrix.Contents) do
+          for _, point in ipairs(row) do
+            point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
+          end
+        end
+
+        return raw_matrix
+      else -- If #columns > #rows (wide)
+        -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
+        -- matrix*matrix_t aka M * Mt aka Mt
+        local MMt = matrix * matrix_t
+        local invMMt = emergency_metatable(invertMatrix(MMt))
+
+        local raw_matrix = matrix_t * invMMt
+
+        for _, row in ipairs(raw_matrix.Contents) do
+          for _, point in ipairs(row) do
+            point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
+          end
+        end
+
+        return raw_matrix
+      end
+    end
+  end
+end
+
+local function mod_method(t, value)
+  if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
+  if type(value) == "number" then
+    for _, row in ipairs(t.Contents) do
+      for _, point in ipairs(row) do
+        point.Value = point.Value % value
+      end
+    end
+
+    return t
+  elseif getmetatable(value) == "Matrix" then
+    if not (value.Size and value.Contents) then error("Attempt to perform arithmetic on malformed Matrix") end
+    if not ((value.Size.A == t.Size.A) and (value.Size.B == t.Size.B)) then
+      error("Attempt to perform modulus operation on Matrix of size " ..
+        t.Size.A .. "x" .. t.Size.B .. " and Matrix of size " .. value.Size.A .. "x" .. value.Size.B)
+    end
+    for y, row in ipairs(t.Contents) do
+      for x, point in ipairs(row) do
+        point.Value = point.Value % value.Contents[y][x].Value
+      end
+    end
+
+    return t
+  else
+    error("Attempt to perform arithmetic between Matrix and " .. type(value))
+  end
+end
+
+local function pow_method(t, value)
+  if not (getmetatable(t) == "Matrix") then error("Attempt to use Matrix as an exponent") end
+  if not (type(value) == "number") then error("Attempt to raise Matrix to non-scalar exponent") end
+  local base = t
+
+  if not (t.Size.A == t.Size.B) then error("Attempt to raise Matrix of non-square proportions to an exponent") end
+  for _ = 1, value, 1 do
+    t = t * base
+  end
+
+  return t
+end
+
+local function eq_method(t, value)
+  if getmetatable(t) == "Matrix" then
+    if type(value) == "number" then
+      for _, row in ipairs(t.Contents) do
+        for _, point in ipairs(row) do
+          if point.Value ~= value then
+            return false
+          end
+        end
+      end
+
+      return true
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Size and value.Contents) then error("Attempt to index a malformed Matrix") end
+      if not (value.Size.A == t.Size.A and value.Size.B == t.Size.B) then
+        error(
+          "Attempt to compare nonsimilar Matrices")
+      end
+      for y, row in ipairs(t.Contents) do
+        for x, point in ipairs(row) do
+          if point.Value ~= value.Contents[y][x].Value then
+            return false
+          end
+        end
+      end
+
+      return true
+    else
+      error("Attempt to compare Matrix and " .. type(value))
+    end
+  elseif type(t) == "number" then
+    for _, row in ipairs(value.Contents) do
+      for _, point in ipairs(row) do
+        if point.Value ~= t then
+          return false
+        end
+      end
+    end
+    return true
+  end
+  error("Comparison failed between " .. t .. " (" .. type(t) .. ") and " .. value .. " (" .. type(value) .. ")")
+end
+
+local function lt_method(t, value)
+  if getmetatable(t) == "Matrix" then
+    if type(value) == "number" then
+      for _, row in ipairs(t.Contents) do
+        for _, point in ipairs(row) do
+          if not (point.Value < value) then
+            return false
+          end
+        end
+      end
+
+      return true
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Size and value.Contents) then error("Attempt to index a malformed Matrix") end
+      if not (value.Size.A == t.Size.A and value.Size.B == t.Size.B) then
+        error(
+          "Attempt to compare nonsimilar Matrices")
+      end
+      for y, row in ipairs(t.Contents) do
+        for x, point in ipairs(row) do
+          if not (point.Value < value.Contents[y][x].Value) then
+            return false
+          end
+        end
+      end
+
+      return true
+    else
+      error("Attempt to compare Matrix and " .. type(value))
+    end
+  else
+    if not (type(t) == "number") then error("Attempt to compare Matrix and " .. type(value)) end
+
+    for _, row in ipairs(value.Contents) do
+      for _, point in ipairs(row) do
+        if not (point.Value < t) then
+          return false
+        end
+      end
+    end
+
+    return true
+  end
+end
+
+local function le_method(t, value)
+  if getmetatable(t) == "Matrix" then
+    if type(value) == "number" then
+      for _, row in ipairs(t.Contents) do
+        for _, point in ipairs(row) do
+          if not (point.Value <= value) then
+            return false
+          end
+        end
+      end
+
+      return true
+    elseif getmetatable(value) == "Matrix" then
+      if not (value.Size and value.Contents) then error("Attempt to index a malformed Matrix") end
+      if not (value.Size.A == t.Size.A and value.Size.B == t.Size.B) then
+        error(
+          "Attempt to compare nonsimilar Matrices")
+      end
+      for y, row in ipairs(t.Contents) do
+        for x, point in ipairs(row) do
+          if not (point.Value <= value.Contents[y][x].Value) then
+            return false
+          end
+        end
+      end
+
+      return true
+    else
+      error("Attempt to index Matrix and " .. type(value))
+    end
+  else
+    if not (type(t) == "number") then error("Attempt to compare Matrix and " .. type(value)) end
+
+    for _, row in ipairs(value.Contents) do
+      for _, point in ipairs(row) do
+        if not (point.Value <= t) then
+          return false
+        end
+      end
+    end
+
+    return true
+  end
+end
+
+local function iter_method(t)
+  local points = {}
+
+  for _, row in ipairs(t.Contents) do
+    for _, point in ipairs(row) do
+      points[point.Position.X .. ", " .. point.Position.Y] = point.Value
+    end
+  end
+
+  return ipairs(points)
+end
 
 -- Metatable Function
 local function metamethods(givenmatrix)
   setmetatable(givenmatrix, {
     __index = matrix,
 
-    __newindex = function(_, key, _)
-      if key == "ClassName" or key == "Size" or key == "Contents" then
-        error("Unable to assign property " .. tostring(key) .. ". Property is read only")
-      else
-        error("Unable to assign property " .. tostring(key) .. ". Property does not exist")
-      end
-    end,
+    __newindex = new_index_method,
 
-    __len = function(t)
-      local points = 0
+    __len = length_method,
 
-      for _, row in pairs(t.Contents) do
-        points = #row + points
-      end
+    __metatable = matrix_metatable_str,
 
-      return points
-    end,
+    __call = call_method,
 
-    __metatable = "Matrix",
+    __concat = concat_method,
 
-    __call = function(t)
-      for _, row in pairs(t.Contents) do
-        for _, point in pairs(row) do
-          print("(" .. tostring(point.Position.X) .. ", " .. tostring(point.Position.Y) .. ") " .. tostring(point.Value))
-        end
-      end
-    end,
+    __tostring = tostring_method,
 
-    __concat = function(t, _)
-      local writtenTable = {}
-      local mostdigits = 0
+    __unm = unary_minus_method,
 
-      for i = 1, t.Size.B, 1 do
-        for _, point in pairs(t.Contents[i]) do
-          if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
-        end
-      end
+    __add = add_method,
 
-      for i = 1, t.Size.B, 1 do
-        local currentRow = t.Contents[i]
-        local values = {}
+    __sub = sub_method,
 
-        for _, point in ipairs(currentRow) do
-          table.insert(values, point.Position.X, roundToDigits(point.Value, mostdigits, true))
-        end
+    __mul = mul_method,
 
-        writtenTable[i] = table.concat(values, ", ")
-      end
+    __div = div_method,
 
-      local resultant = ""
+    __idiv = idiv_method,
 
-      for i, row in ipairs(writtenTable) do
-        -- if i == 1 then
-        --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
-        -- elseif i == #writtenTable then
-        --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
-        -- else
-        --   resultant = resultant .. "\n| " .. row .. " |\n"
-        -- end
+    __mod = mod_method,
 
-        resultant = resultant.."\n[ "..row.." ]\n"
-      end
+    __pow = pow_method,
 
-      return resultant
-    end,
+    __eq = eq_method,
 
-    __tostring = function(t)
-      local writtenTable = {}
-      local mostdigits = 0
+    __lt = lt_method,
 
-      for i = 1, t.Size.B, 1 do
-        for _, point in ipairs(t.Contents[i]) do
-          if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
-        end
-      end
+    __le = le_method,
 
-      for i = 1, t.Size.B, 1 do
-        local currentRow = t.Contents[i]
-        local values = {}
-
-        --print(mostdigits)
-        for _, point in ipairs(currentRow) do
-          table.insert(values, point.Position.X, roundToDigits(point.Value, mostdigits, true))
-        end
-
-        writtenTable[i] = table.concat(values, ", ")
-      end
-
-      local resultant = ""
-
-      for i, row in ipairs(writtenTable) do
-        -- if i == 1 then
-        --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
-        -- elseif i == #writtenTable then
-        --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
-        -- else
-        --   resultant = resultant .. "\n| " .. row .. " |\n"
-        -- end
-
-        resultant = resultant.."\n[ "..row.." ]\n"
-      end
-
-      return resultant
-    end,
-
-    __unm = function(t)
-      for i = 1, t.Size.B, 1 do
-        for _, point in ipairs(t.Contents[i]) do
-          point.Value = -point.Value
-        end
-      end
-
-      return t
-    end,
-
-    __add = function(t, value)
-      if find(allowedTypes, type(value)) then
-        if type(value) == "number" then
-          for i = 1, t.Size.B, 1 do
-            for _, point in ipairs(t.Contents[i]) do
-              point.Value = value + point.Value
-            end
-          end
-
-          return t
-        elseif getmetatable(value) == "Matrix" then
-          if value.Contents and value.Size then
-            if value.Size.A == t.Size.A and value.Size.B == t.Size.B then
-              for i = 1, t.Size.B, 1 do
-                for j, point in ipairs(t.Contents[i]) do
-                  point.Value = value.Contents[i][j].Value + point.Value
-                end
-              end
-
-              return t
-            else
-              error("Terminated attempt to perform arithmetic between Matrices of different proportions")
-            end
-          else
-            error("Attempt to perform arithmetic on malformed Matrix")
-          end
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __sub = function(t, value)
-      if find(allowedTypes, type(value)) then
-        if type(value) == "number" then
-          for i = 1, t.Size.B, 1 do
-            for _, point in ipairs(t.Contents[i]) do
-              point.Value = point.Value - value
-            end
-          end
-
-          return t
-        elseif getmetatable(value) == "Matrix" then
-          if value.Contents and value.Size then
-            if value.Size.A == t.Size.A and value.Size.B == t.Size.B then
-              for i = 1, t.Size.B, 1 do
-                for j, point in ipairs(t.Contents[i]) do
-                  point.Value = point.Value - value.Contents[i][j].Value
-                end
-              end
-
-              return t
-            else
-              error("Terminated attempt to perform arithmetic between Matrices of different proportions")
-            end
-          else
-            error("Attempt to perform arithmetic on malformed Matrix")
-          end
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __mul = function(t, value)
-      if find(allowedTypes, type(value)) then
-        if type(value) == "number" then
-          for i = 1, t.Size.B, 1 do
-            for _, point in ipairs(t.Contents[i]) do
-              point.Value = point.Value * value
-            end
-          end
-
-          return t
-        elseif getmetatable(value) == "Matrix" then
-          if value.Contents and value.Size then
-            if t.Size.A == value.Size.B then
-              local resultMatrix = {}
-              resultMatrix.Size = {}
-              resultMatrix.Contents = {}
-              resultMatrix.ClassName = className
-
-              for i = 1, t.Size.A do
-                local currentRow = t.Contents[i]
-
-                for j = 1, value.Size.B, 1 do
-                  local sum = 0
-
-                  for k = 1, t.Size.A, 1 do
-                    --print(t.Size, value.Size)
-                    --print(t)
-                    ----print(t)
-                    --print(value.Contents[k], k)
-                    sum = currentRow[k].Value * value.Contents[k][j].Value + sum
-                  end
-                  --currentRow[j].Value = sum
-                  -- need a result matrix
-                  if not (resultMatrix.Contents[i]) then resultMatrix.Contents[i] = {} end
-                  if not (resultMatrix.Contents[i][j]) then
-                    resultMatrix.Contents[i][j] = {}
-                    resultMatrix.Contents[i][j].Value = sum
-                    resultMatrix.Contents[i][j].Position = {
-                      ["X"] = j,
-                      ["Y"] = i,
-                    }
-                  end
-
-                  resultMatrix.Size.A = t.Size.A
-                  resultMatrix.Size.B = value.Size.B
-                end
-              end
-
-              return metamethods(resultMatrix)
-            else
-              error(
-              "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
-            end
-          else
-            error("Attempt to perform arithmetic on malformed Matrix")
-          end
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __div = function(t, value)
-      if find(allowedTypes, type(value)) then
-        if type(value) == "number" then
-          for i = 1, t.Size.B, 1 do
-            for _, point in ipairs(t.Contents[i]) do
-              point.Value = point.Value / value
-            end
-          end
-
-          return t
-        elseif getmetatable(value) == "Matrix" then
-          if value.Contents and value.Size then
-            -- multiply the left matrix by the inverse of the right matrix [table * inverse(value)]
-            if t.Size.A == value.Size.A then       -- bc it will be the inverse size that has to be equal
-              if value.Size.A == value.Size.B then -- Do Gauss-Jordan
-                local invertedMatrix = metamethods(invertMatrix(value))
-                local quotient = t * invertedMatrix
-                return quotient
-              else -- Maybe try using Moore-Penrose sometime ;-;
-                -- I don't completely understand WHY it works (like all the math behind this equation), but I do know that it works so I'll use it
-                -- Have to do pseudoinversion here bc metamethods are needed
-
-                local matrix_t = metamethods(transposeMatrix(value)) -- To get full row/column rank
-
-                if value.Size.B >= value.Size.A then                 -- If #rows >= #columns (tall) [Order matters]
-                  -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
-                  -- matrix_t*matrix aka Mt * M aka MtM
-                  local MtM = matrix_t * matrix
-                  local invMtM = metamethods(invertMatrix(MtM))
-
-                  return invMtM * matrix_t
-                else -- If #columns > #rows (wide)
-                  -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
-                  -- matrix*matrix_t aka M * Mt aka Mt
-                  local MMt = matrix * matrix_t
-                  local invMMt = metamethods(invertMatrix(MMt))
-
-                  return matrix_t * invMMt
-                end
-
-
-                --error("Terminated attempt to divide by a non-square Matrix") (Unreachable code)
-              end
-            else
-              error(
-              "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
-            end
-          else
-            error("Attempt to perform arithmetic on malformed Matrix")
-          end
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __idiv = function(t, value)
-      if find(allowedTypes, type(value)) then
-        if type(value) == "number" then
-          for i = 1, t.Size.B, 1 do
-            for _, point in ipairs(t.Contents[i]) do
-              point.Value = math.floor(point.Value / value)
-            end
-          end
-
-          return t
-        elseif getmetatable(value) == "Matrix" then
-          if value.Contents and value.Size then
-            -- multiply the left matrix by the inverse of the right matrix [table * inverse(value)]
-            if t.Size.A == value.Size.A then       -- bc it will be the inverse size that has to be equal
-              if value.Size.A == value.Size.B then -- Do Gauss-Jordan
-                local invertedMatrix = metamethods(invertMatrix(value))
-                local quotient = t * invertedMatrix
-
-                for _, row in ipairs(quotient.Contents) do
-                  for _, point in ipairs(row) do
-                    --print(point.Value, math.round(point.Value))
-                    point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
-                    if point.Value == 0 then point.Value = 0 end -- prevent -0
-                  end
-                end
-
-                return quotient
-              else -- Maybe try using Moore-Penrose sometime ;-;
-                -- I don't completely understand WHY it works (like all the math behind this equation), but I do know that it works so I'll use it
-                -- Have to do pseudoinversion here bc metamethods are needed
-
-                local matrix_t = metamethods(transposeMatrix(value)) -- To get full row/column rank
-
-                if value.Size.B >= value.Size.A then                 -- If #rows >= #columns (tall) [Order matters]
-                  -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
-                  -- matrix_t*matrix aka Mt * M aka MtM
-                  local MtM = matrix_t * matrix
-                  local invMtM = metamethods(invertMatrix(MtM))
-
-                  local raw_matrix = invMtM * matrix_t
-
-                  for _, row in ipairs(raw_matrix.Contents) do
-                    for _, point in ipairs(row) do
-                      --print(point.Value, math.round(point.Value))
-                      point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
-                    end
-                  end
-
-                  return raw_matrix
-                else -- If #columns > #rows (wide)
-                  -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
-                  -- matrix*matrix_t aka M * Mt aka Mt
-                  local MMt = matrix * matrix_t
-                  local invMMt = metamethods(invertMatrix(MMt))
-
-                  local raw_matrix = matrix_t * invMMt
-
-                  for _, row in ipairs(raw_matrix.Contents) do
-                    for _, point in ipairs(row) do
-                      --print(point.Value, math.round(point.Value))
-                      point.Value = roundToDigits(point.Value, string.len(tostring(point.Value)))
-                    end
-                  end
-
-                  return raw_matrix
-                end
-
-
-                --error("Terminated attempt to divide by a non-square Matrix") (Unreachable code)
-              end
-            else
-              error(
-              "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
-            end
-          else
-            error("Attempt to perform arithmetic on malformed Matrix")
-          end
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __mod = function(t, value)
-      if type(value) == "number" then
-        for _, row in ipairs(t.Contents) do
-          for _, point in ipairs(row) do
-            point.Value = point.Value % value
-          end
-        end
-
-        return t
-      elseif getmetatable(value) == "Matrix" then
-        if value.Size and value.Contents then
-          if (value.Size.A == t.Size.A) and (value.Size.B == t.Size.B) then
-            for y, row in ipairs(t.Contents) do
-              for x, point in ipairs(row) do
-                point.Value = point.Value % value.Contents[y][x].Value
-              end
-            end
-
-            return t
-          else
-            error("Attempt to perform modulus operation on Matrix of size " ..
-            t.Size.A .. "x" .. t.Size.B .. " and Matrix of size " .. value.Size.A .. "x" .. value.Size.B)
-          end
-        else
-          error("Attempt to perform arithmetic on malformed Matrix")
-        end
-      else
-        error("Attempt to perform arithmetic between Matrix and " .. type(value))
-      end
-    end,
-
-    __pow = function(t, value)
-      if type(value) == "number" then
-        local base = t
-
-        if t.Size.A == t.Size.B then
-          for _ = 1, value, 1 do
-            t = t * base
-          end
-
-          return t
-        else
-          error("Attempt to raise Matrix of non-square proportions to an exponent")
-        end
-      else
-        error("Attempt to raise Matrix to non-scalar exponent")
-      end
-    end,
-
-    __eq = function(t, value)
-      if type(value) == "number" then
-        for _, row in ipairs(t.Contents) do
-          for _, point in ipairs(row) do
-            if point.Value ~= value then
-              return false
-            end
-          end
-        end
-
-        return true
-      elseif getmetatable(value) == "Matrix" then
-        if value.Size and value.Contents then
-          if value.Size.A == t.Size.A and value.Size.B == t.Size.B then
-            for y, row in ipairs(t.Contents) do
-              for x, point in ipairs(row) do
-                if point.Value ~= value.Contents[y][x].Value then
-                  return false
-                end
-              end
-            end
-
-            return true
-          else
-            error("Attempt to compare nonsimilar Matrices")
-          end
-        else
-          error("Attempt to index a malformed Matrix")
-        end
-      else
-        error("Attempt to index Matrix and " .. type(value))
-      end
-    end,
-
-    __lt = function(t, value)
-      if type(value) == "number" then
-        for _, row in ipairs(t.Contents) do
-          for _, point in ipairs(row) do
-            if not (point.Value < value) then
-              return false
-            end
-          end
-        end
-
-        return true
-      elseif getmetatable(value) == "Matrix" then
-        if value.Size and value.Contents then
-          if value.Size.A == t.Size.A and value.Size.B == t.Size.B then
-            for y, row in ipairs(t.Contents) do
-              for x, point in ipairs(row) do
-                if not (point.Value < value.Contents[y][x].Value) then
-                  return false
-                end
-              end
-            end
-
-            return true
-          else
-            error("Attempt to compare nonsimilar Matrices")
-          end
-        else
-          error("Attempt to index a malformed Matrix")
-        end
-      else
-        error("Attempt to index Matrix and " .. type(value))
-      end
-    end,
-
-    __le = function(t, value)
-      if type(value) == "number" then
-        for _, row in ipairs(t.Contents) do
-          for _, point in ipairs(row) do
-            if not (point.Value <= value) then
-              return false
-            end
-          end
-        end
-
-        return true
-      elseif getmetatable(value) == "Matrix" then
-        if value.Size and value.Contents then
-          if value.Size.A == t.Size.A and value.Size.B == t.Size.B then
-            for y, row in ipairs(t.Contents) do
-              for x, point in ipairs(row) do
-                if not (point.Value <= value.Contents[y][x].Value) then
-                  return false
-                end
-              end
-            end
-
-            return true
-          else
-            error("Attempt to compare nonsimilar Matrices")
-          end
-        else
-          error("Attempt to index a malformed Matrix")
-        end
-      else
-        error("Attempt to index Matrix and " .. type(value))
-      end
-    end,
-
-    __iter = function(t)
-      local points = {}
-
-      for _, row in ipairs(t.Contents) do
-        for _, point in ipairs(row) do
-          points[point.Position.X .. ", " .. point.Position.Y] = point.Value
-        end
-      end
-
-      return pairs(points)
-    end,
+    __iter = iter_method,
 
   })
 
   return givenmatrix
 end
+
+emergency_metatable = metamethods
 
 local function findDeterminant(t) -- for recursive searching
   if t.Size.A == 1 then
@@ -796,15 +819,13 @@ local function findDeterminant(t) -- for recursive searching
       for i = 2, t.Size.A do
         minor.Contents[i - 1] = {}
         for j = 1, t.Size.A do
-          if j ~= t.Size.A then
+          if j == t.Size.A then goto continue end
             table.insert(minor.Contents[i - 1], t.Contents[i][j])
-          end
+            ::continue::
         end
       end
 
-      minor.Size.A = #minor.Contents[1]
-      minor.Size.B = #minor.Contents
-
+      minor.Size.A, minor.Size.B = #minor.Contents[1], #minor.Contents
       minor = metamethods(minor)
 
       local sign = ((column % 2 == 1) and 1) or -1
@@ -993,7 +1014,7 @@ function matrix:getRank()
         local factor = self.Contents[row][x].Value
         for column = x, self.Size.A do
           self.Contents[row][column].Value = self.Contents[row][column].Value - factor *
-          self.Contents[init][column].Value
+              self.Contents[init][column].Value
         end
       end
 
@@ -1269,7 +1290,7 @@ function matrix:removeColumn(position)
       self.Contents[i - 1] = self.Contents[i]
 
       if i == #self.Contents then
-        self.Contents[i] = empty
+        self.Contents[i] = { Maximum = 0, Minimum = 0 }
       end
     end
   end
