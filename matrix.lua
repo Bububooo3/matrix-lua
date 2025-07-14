@@ -820,8 +820,8 @@ local function findDeterminant(t) -- for recursive searching
         minor.Contents[i - 1] = {}
         for j = 1, t.Size.A do
           if j == t.Size.A then goto continue end
-            table.insert(minor.Contents[i - 1], t.Contents[i][j])
-            ::continue::
+          table.insert(minor.Contents[i - 1], t.Contents[i][j])
+          ::continue::
         end
       end
 
@@ -893,22 +893,18 @@ function matrix.new(columns, rows, defaultvalue)
   if not (defaultvalue) then defaultvalue = 0; end
 
   self.ClassName = className
-  self.Size = {
-    ["A"] = columns,
-    ["B"] = rows,
-  }
+  self.Size = { A = columns, B = rows }
 
   self.Contents = {}
 
   for i = 1, rows, 1 do
     self.Contents[i] = newRow(i, columns, defaultvalue)
   end
-  --print(self)
 
   return metamethods(self)
 end
 
--- OBJECT METHODS
+-- CLASS METHODS
 
 function matrix:fill(value)
   for _, row in ipairs(self.Contents) do
