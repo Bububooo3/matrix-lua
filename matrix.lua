@@ -104,7 +104,7 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
   local msize = { A = oldmatrix.Size.A, B = oldmatrix.Size.B }
   local midentity = createIdentityMatrix(msize.A) -- A or B doesn't matter bc it's squared
 
-  
+
   for i = 1, msize.A do
     -- Find pivot (diagonal of '1's) (One 1 per column so we can search recursively and stuff)
     local pivot_point = mclone.Contents[i][i]
@@ -122,8 +122,8 @@ local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this st
       end
     end
 
-    if pivot_point==0 then error("Matrix is singular, and thus indivisible") end
-    
+    if pivot_point == 0 then error("Matrix is singular, and thus indivisible") end
+
     -- Step 2 aaaaaa
     -- Make pivot point equal to 1 by dividing every value in the row by the pivot point value
     for j = 1, msize.A do
@@ -263,6 +263,7 @@ local function concat_method(t, _)
     -- end
 
     resultant = resultant .. "\n[ " .. row .. " ]\n"
+    if next(writtenTable, i) then resultant = resultant.."\n" end
   end
 
   return resultant
@@ -301,7 +302,8 @@ local function tostring_method(t)
     --   resultant = resultant .. "\n| " .. row .. " |\n"
     -- end
 
-    resultant = resultant .. "\n[ " .. row .. " ]\n"
+    resultant = resultant .. "\n[ " .. row .. " ]"
+    if next(writtenTable, i) then resultant = resultant.."\n" end
   end
 
   return resultant
@@ -318,7 +320,7 @@ local function unary_minus_method(t)
 end
 
 local function add_method(t, value)
-  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
+  if not find(allowedTypes, type(value)) and not (getmetatable(value) == "Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -357,7 +359,7 @@ local function add_method(t, value)
 end
 
 local function sub_method(t, value)
-  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
+  if not find(allowedTypes, type(value)) and not (getmetatable(value) == "Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -391,7 +393,7 @@ local function sub_method(t, value)
 end
 
 local function mul_method(t, value)
-  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
+  if not find(allowedTypes, type(value)) and not (getmetatable(value) == "Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -446,7 +448,7 @@ end
 
 local function div_method(t, value)
   if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
-  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
+  if not find(allowedTypes, type(value)) and not (getmetatable(value) == "Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -495,7 +497,7 @@ end
 
 local function idiv_method(t, value)
   if not (getmetatable(t) == "Matrix") then error("Attempt to divide a " .. type(t) .. " by a Matrix") end
-  if not find(allowedTypes, type(value)) and not(getmetatable(value)=="Matrix") then
+  if not find(allowedTypes, type(value)) and not (getmetatable(value) == "Matrix") then
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
@@ -742,61 +744,48 @@ local function le_method(t, value)
   end
 end
 
-local function iter_method(t)
-  local points = {}
+local metatable_to_use = {
+  __index = matrix,
 
-  for _, row in ipairs(t.Contents) do
-    for _, point in ipairs(row) do
-      points[point.Position.X .. ", " .. point.Position.Y] = point.Value
-    end
-  end
+  __newindex = new_index_method,
 
-  return ipairs(points)
-end
+  __len = length_method,
+
+  __metatable = matrix_metatable_str,
+
+  __call = call_method,
+
+  __concat = concat_method,
+
+  __tostring = tostring_method,
+
+  __unm = unary_minus_method,
+
+  __add = add_method,
+
+  __sub = sub_method,
+
+  __mul = mul_method,
+
+  __div = div_method,
+
+  __idiv = idiv_method,
+
+  __mod = mod_method,
+
+  __pow = pow_method,
+
+  __eq = eq_method,
+
+  __lt = lt_method,
+
+  __le = le_method,
+
+}
 
 -- Metatable Function
 local function metamethods(givenmatrix)
-  setmetatable(givenmatrix, {
-    __index = matrix,
-
-    __newindex = new_index_method,
-
-    __len = length_method,
-
-    __metatable = matrix_metatable_str,
-
-    __call = call_method,
-
-    __concat = concat_method,
-
-    __tostring = tostring_method,
-
-    __unm = unary_minus_method,
-
-    __add = add_method,
-
-    __sub = sub_method,
-
-    __mul = mul_method,
-
-    __div = div_method,
-
-    __idiv = idiv_method,
-
-    __mod = mod_method,
-
-    __pow = pow_method,
-
-    __eq = eq_method,
-
-    __lt = lt_method,
-
-    __le = le_method,
-
-    __iter = iter_method,
-
-  })
-
+  setmetatable(givenmatrix, metatable_to_use)
   return givenmatrix
 end
 
@@ -836,41 +825,40 @@ local function findDeterminant(t) -- for recursive searching
   end
 end
 
+local point_metatable_to_use = {
+  __index = function(t, key)
+    --print(key)
+
+    if string.lower(key) == "value" then
+      return rawget(t, "Value")
+    elseif string.lower(key) == "position" then
+      return rawget(t, "Position")
+    elseif string.lower(key) == "x" or string.lower(key) == "column" then
+      return rawget(t, "Position").X
+    elseif string.lower(key) == "y" or string.lower(key) == "row" then
+      return rawget(t, "Position").Y
+    else
+      warn(key .. " is not a property of the 'point' class. Returning " .. t.Value .. " in its place...")
+      return t.Value
+    end
+  end,
+
+  __newindex = function(_, key, _)
+    error(key .. " is not a valid member of the 'point' class")
+  end,
+
+}
+
 local function newRow(currentrow, columns, defaultvalue)
   local row = {}
 
   for i = 1, columns, 1 do
     local temporary_point = {
-      ["Value"] = defaultvalue,
-      ["Position"] = {
-        ["X"] = i,
-        ["Y"] = currentrow
-      }
+      Value = defaultvalue,
+      Position = { X = i, Y = currentrow }
     }
 
-    setmetatable(temporary_point, {
-      __index = function(t, key)
-        --print(key)
-
-        if string.lower(key) == "value" then
-          return rawget(t, "Value")
-        elseif string.lower(key) == "position" then
-          return rawget(t, "Position")
-        elseif string.lower(key) == "x" or string.lower(key) == "column" then
-          return rawget(t, "Position").X
-        elseif string.lower(key) == "y" or string.lower(key) == "row" then
-          return rawget(t, "Position").Y
-        else
-          warn(key .. " is not a property of the 'point' class. Returning " .. t.Value .. " in its place...")
-          return t.Value
-        end
-      end,
-
-      __newindex = function(_, key, _)
-        error(key .. " is not a valid member of the 'point' class")
-      end,
-
-    })
+    setmetatable(temporary_point, point_metatable_to_use)
 
     row[i] = temporary_point
   end
