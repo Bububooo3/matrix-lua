@@ -1,7 +1,7 @@
 -- DataType
 -- Created by Dynamo (@Roller_Bott)
 -- Created 4/18/25
--- Last Updated 7/12/25
+-- Last Updated 8/30/25
 -- these notes keep me sane
 
 -- Matrix Class Library
