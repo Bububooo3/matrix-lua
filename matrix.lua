@@ -1290,7 +1290,7 @@ function matrix:isSingular()
 end
 
 function matrix:isInvertible()
-  return (self:getDeterminant() != 0)
+  return not(self:getDeterminant() == 0)
 end
 
 function matrix.zero(columns, rows)
