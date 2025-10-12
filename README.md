@@ -5,7 +5,7 @@ print("Start:", os.clock())
 -- DataType
 -- Created by Dynamo (@Roller_Bott)
 -- Created 4/18/25
--- Last Updated 8/30/25
+-- Last Updated 10/12/25
 -- these notes keep me sane
 
 -- Matrix Class Library
