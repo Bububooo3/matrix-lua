@@ -25,6 +25,7 @@ local properties = {
   "flood",
   "fill",
   "replace",
+  "enumerate",
   "transpose",
   "getDeterminant",
   "getRank",
