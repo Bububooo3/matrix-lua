@@ -1286,19 +1286,11 @@ function matrix:removeColumn(position)
 end
 
 function matrix:isSingular()
-  if self:getDeterminant() == 0 then
-    return true
-  else
-    return false
-  end
+  return (self:getDeterminant() == 0)
 end
 
 function matrix:isInvertible()
-  if self:getDeterminant() == 0 then
-    return false
-  else
-    return true
-  end
+  return (self:getDeterminant() != 0)
 end
 
 function matrix.zero(columns, rows)
