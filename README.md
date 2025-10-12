@@ -1,4 +1,4 @@
-Demo code to paste in online IDE:
+Single-file demo code to paste & run in online IDE:
 
 ```lua
 
