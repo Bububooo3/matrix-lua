@@ -1,4 +1,4 @@
-Single-file demo code to paste & run in online IDE:
+Single-file demo code to paste & run in [online IDE]([url](https://www.mycompiler.io/new/lua)):
 
 ```lua
 print("Start:", os.clock())
