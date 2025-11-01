@@ -332,7 +332,7 @@ local function add_method(t, value)
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
-
+    if type(t) == "number" then t, value = value, t end
   if getmetatable(t) == "Matrix" then
     if type(value) == "number" then
       for i = 1, t.Size.B, 1 do
@@ -356,12 +356,7 @@ local function add_method(t, value)
 
       return t
     end
-  elseif type(t) == "number" then
-    for i = 1, value.Size.B, 1 do
-        for _, point in ipairs(value.Contents[i]) do
-          point.Value = point.Value + t
-        end
-  	end
+    end
 end
 
 local function sub_method(t, value)
