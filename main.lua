@@ -1,23 +1,11 @@
-local Matrix = require('matrix.lua')
+local Matrix = matrix
 print("Init: ", os.clock())
 
-local new = Matrix.new(9,9,1)
-local t_times, limit, a = {}, 10, 0
+local new = Matrix.new(3,3,1)
+local other = Matrix.new(2,3,3)
 
-for i=1, limit do
-    new = Matrix.new(2,4,1)
-    -- print(new+2)
-    t_times[i] = os.clock()
-end
+other:flood({1,2,3,4,5,6})
+print(new.." times "..other)
+print(new*other)
 
-for i=2, limit do
-    a = a + (t_times[i]-t_times[i-1])
-end
 
-a = a/limit
-
-for x, y, v in matrix.enumerate(new) do
-    print(x..", "..y..": "..v)
-end
-
-print(a)
