@@ -357,8 +357,11 @@ local function add_method(t, value)
       return t
     end
   elseif type(t) == "number" then
-    error("Attempt to subtract a Matrix from a Scalar")
-  end
+    for i = 1, value.Size.B, 1 do
+        for _, point in ipairs(value.Contents[i]) do
+          point.Value = point.Value + t
+        end
+  	end
 end
 
 local function sub_method(t, value)
