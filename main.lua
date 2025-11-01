@@ -9,4 +9,4 @@ other:flood({1,2,3,4,5,6})
 print(new.." times "..other.." equals")
 print(new*other)
 
-
+print((new+1).."\n"..(1+new))
