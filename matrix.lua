@@ -2,12 +2,13 @@ print("Start:", os.clock())
 -- DataType
 -- Created by Dynamo (@Roller_Bott)
 -- Created 4/18/25
--- Last Updated 10/12/25
+-- Last Updated 11/01/25
 -- these notes keep me sane
 
 --[[
 TODO:
 --> Replace nesting with guard clauses
+--> Make methods more efficient by using enumerate()
 --> Flat arrays
 --> Finish all methods
 --> More efficient error system
@@ -288,7 +289,7 @@ end
 local function tostring_method(t)
   local writtenTable = {}
   local mostdigits = 0
-
+    -- print(t.Size.A, t.Size.B)
   for i = 1, t.Size.B do
     for _, point in pairs(t.Contents[i]) do
       if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
@@ -413,15 +414,14 @@ local function mul_method(t, value)
       if not (t.Size.A == value.Size.B) then
         error("Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
       end
-
-      local resultMatrix = { Size = { A = value.Size.A, B = t.Size.A }, Contents = {}, ClassName = className }
-
-      for i = 1, t.Size.A do
+-- 3x3 * 2x3 --> 3x2
+      local resultMatrix = { Size = { A = value.Size.A, B = t.Size.B }, Contents = {}, ClassName = className }
+        -- print(t.Size.A, t.Size.B)
+        -- print(value.Size.A, value.Size.B)
+      for i = 1, t.Size.B do
         local currentRow = t.Contents[i]
-
         for j = 1, value.Size.A do
           local sum = 0
-                        
           for k = 1, t.Size.A do
             sum = currentRow[k].Value * value.Contents[k][j].Value + sum
           end
@@ -1309,17 +1309,3 @@ end
 function matrix.enumerate(t)
     return enumerate(t)
 end
-
--- RUNTIME CODE --
-
--- local Matrix = matrix
--- print("Init: ", os.clock())
-
--- local new = Matrix.new(3,3,1)
--- local other = Matrix.new(2,3,3)
-
--- -- other:flood({1,2,3,4,5,6})
--- print(new.." times "..other)
--- print(new*other)
-
-
