@@ -477,14 +477,14 @@ local function div_method(t, value)
       if value.Size.B >= value.Size.A then                         -- If #rows >= #columns (tall) [Order matters]
         -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
         -- matrix_t*matrix aka Mt * M aka MtM
-        local MtM = matrix_t * matrix
+        local MtM = matrix_t * value
         local invMtM = emergency_metatable(invertMatrix(MtM))
 
         return invMtM * matrix_t
       else -- If #columns > #rows (wide)
         -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
         -- matrix*matrix_t aka M * Mt aka Mt
-        local MMt = matrix * matrix_t
+        local MMt = value * matrix_t
         local invMMt = emergency_metatable(invertMatrix(MMt))
 
         return matrix_t * invMMt
