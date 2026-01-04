@@ -237,12 +237,14 @@ local function new_index_method(_, key, _)
   error("Unable to configure property " .. tostring(key) .. ". Property does not exist")
 end
 
-local function length_method(t)
-  local points = 0
+local function length_method(t) -- OK I'm going to leave this here commented out so we can remember how dumb I am bc WHAT IN THE WORLD
+  --[[  local points = 0
   for _, row in ipairs(t.Contents) do
     points = #row + points
   end
   return points
+	]]
+	return t.Size.A * t.Size.B -- Stay in school kids 😭
 end
 
 local matrix_metatable_str = "Matrix"
