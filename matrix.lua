@@ -1,8 +1,19 @@
+print("Start:", os.clock())
 -- DataType
 -- Created by Dynamo (@Roller_Bott)
 -- Created 4/18/25
--- Last Updated 8/30/25
+-- Last Updated 11/01/25
 -- these notes keep me sane
+
+--[[
+TODO:
+--> Replace nesting with guard clauses
+--> Make methods more efficient by using enumerate()
+--> Flat arrays
+--> Finish all methods
+--> More efficient error system
+--> Rewrite code without loops (polynomial time vs exponential time)
+]]
 
 -- Matrix Class Library
 local matrix = {}
@@ -21,6 +32,7 @@ local properties = {
   "flood",
   "fill",
   "replace",
+  "enumerate",
   "transpose",
   "getDeterminant",
   "getRank",
@@ -35,8 +47,8 @@ local properties = {
   "isSingular",
   "isInvertible",
   "find",
-  "insertRow",    ----> Experimental
-  "insertColumn", ----> Doesn't work
+  -- "insertRow",    ----> Experimental
+  -- "insertColumn", ----> Doesn't work
 }
 
 
@@ -171,6 +183,16 @@ local function transposeMatrix(oldmatrix) -- Basically rotate it
   return newMatrix
 end
 
+local function enumerate(t)
+	local c, x, y, s = t.Contents, 0, 1, t.Size.A
+    return function()
+        x = x + 1
+        if (x>s) and (y == t.Size.B) then return end
+        if x>s then y = y + 1; x=1; end
+        return x, y, c[y][x].Value
+    end
+end
+
 --[[ Orthonormalized Attempt (I'll learn more about it later)
 
 local function dotProduct(a, b)
@@ -230,9 +252,11 @@ local function call_method(t)
   end
 end
 
-local function concat_method(t, _)
+local function concat_method(t, l)
   local writtenTable = {}
   local mostdigits = 0
+  local back = false
+  if not t.Size then l,t = t, l; back = true; end
 
   for i = 1, t.Size.B, 1 do
     for _, point in pairs(t.Contents[i]) do
@@ -251,20 +275,13 @@ local function concat_method(t, _)
     writtenTable[i] = table.concat(values, ", ")
   end
 
-  local resultant = ""
+  local resultant = "\n"
 
   for i, row in ipairs(writtenTable) do
-    -- if i == 1 then
-    --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
-    -- elseif i == #writtenTable then
-    --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
-    -- else
-    --   resultant = resultant .. "\n| " .. row .. " |\n"
-    -- end
-
-    resultant = resultant .. "\n[ " .. row .. " ]\n"
+    resultant = resultant .. "| " .. row .. " |"
     if next(writtenTable, i) then resultant = resultant.."\n" end
   end
+    resultant = back and l..resultant or resultant.."\n"..l
 
   return resultant
 end
@@ -272,9 +289,9 @@ end
 local function tostring_method(t)
   local writtenTable = {}
   local mostdigits = 0
-
-  for i = 1, t.Size.B, 1 do
-    for _, point in ipairs(t.Contents[i]) do
+    -- print(t.Size.A, t.Size.B)
+  for i = 1, t.Size.B do
+    for _, point in pairs(t.Contents[i]) do
       if string.len(tostring(point.Value)) > mostdigits then mostdigits = string.len(tostring(point.Value)); end
     end
   end
@@ -283,7 +300,6 @@ local function tostring_method(t)
     local currentRow = t.Contents[i]
     local values = {}
 
-    --print(mostdigits)
     for _, point in ipairs(currentRow) do
       table.insert(values, point.Position.X, roundToDigits(point.Value, mostdigits, true))
     end
@@ -291,18 +307,10 @@ local function tostring_method(t)
     writtenTable[i] = table.concat(values, ", ")
   end
 
-  local resultant = ""
+  local resultant = "\n"
 
   for i, row in ipairs(writtenTable) do
-    -- if i == 1 then
-    --   resultant = resultant .. "\n⌈ " .. row .. " ⌉\n"
-    -- elseif i == #writtenTable then
-    --   resultant = resultant .. "\n⌊ " .. row .. " ⌋\n"
-    -- else
-    --   resultant = resultant .. "\n| " .. row .. " |\n"
-    -- end
-
-    resultant = resultant .. "\n[ " .. row .. " ]"
+    resultant = resultant .. "| " .. row .. " |"
     if next(writtenTable, i) then resultant = resultant.."\n" end
   end
 
@@ -324,20 +332,12 @@ local function add_method(t, value)
     error("Attempt to perform arithmetic between Matrix and " ..
       type(value))
   end
-
-  if type(t) == "number" and getmetatable(value) == "Matrix" then
-    for i = 1, value.Size.B, 1 do
-      for _, point in ipairs(value.Contents[i]) do
-        point.Value = t + point.Value
-      end
-    end
-
-    return value
-  elseif getmetatable(value) == "Matrix" then
+    if type(t) == "number" then t, value = value, t end
+  if getmetatable(t) == "Matrix" then
     if type(value) == "number" then
       for i = 1, t.Size.B, 1 do
         for _, point in ipairs(t.Contents[i]) do
-          point.Value = value + point.Value
+          point.Value = point.Value + value
         end
       end
 
@@ -350,12 +350,13 @@ local function add_method(t, value)
       end
       for i = 1, t.Size.B, 1 do
         for j, point in ipairs(t.Contents[i]) do
-          point.Value = value.Contents[i][j].Value + point.Value
+          point.Value = point.Value + value.Contents[i][j].Value
         end
       end
+
       return t
     end
-  end
+    end
 end
 
 local function sub_method(t, value)
@@ -399,7 +400,7 @@ local function mul_method(t, value)
   end
   if getmetatable(t) == "Matrix" then
     if type(value) == "number" then
-      for i = 1, t.Size.B, 1 do
+      for i = 1, t.Size.B do
         for _, point in ipairs(t.Contents[i]) do
           point.Value = point.Value * value
         end
@@ -409,19 +410,17 @@ local function mul_method(t, value)
     elseif getmetatable(value) == "Matrix" then
       if not (value.Contents and value.Size) then error("Attempt to perform arithmetic on malformed Matrix") end
       if not (t.Size.A == value.Size.B) then
-        error(
-          "Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
+        error("Terminated attempt to perform arithmetic between Matrices of different proportions (#Rows ~= #Columns)")
       end
-
-      local resultMatrix = { Size = { A = t.Size.A, B = value.Size.B }, Contents = {}, ClassName = className }
-
-      for i = 1, t.Size.A do
+-- 3x3 * 2x3 --> 3x2
+      local resultMatrix = { Size = { A = value.Size.A, B = t.Size.B }, Contents = {}, ClassName = className }
+        -- print(t.Size.A, t.Size.B)
+        -- print(value.Size.A, value.Size.B)
+      for i = 1, t.Size.B do
         local currentRow = t.Contents[i]
-
-        for j = 1, value.Size.B, 1 do
+        for j = 1, value.Size.A do
           local sum = 0
-
-          for k = 1, t.Size.A, 1 do
+          for k = 1, t.Size.A do
             sum = currentRow[k].Value * value.Contents[k][j].Value + sum
           end
 
@@ -432,11 +431,10 @@ local function mul_method(t, value)
           end
         end
       end
-
       return emergency_metatable(resultMatrix)
     end
   elseif type(t) == "number" then
-    for i = 1, value.Size.B, 1 do
+    for i = 1, value.Size.B do
       for _, point in ipairs(value.Contents[i]) do
         point.Value = point.Value * t
       end
@@ -479,14 +477,14 @@ local function div_method(t, value)
       if value.Size.B >= value.Size.A then                         -- If #rows >= #columns (tall) [Order matters]
         -- inverse(matrix_t*matrix) * matrix_t = matrix_pseudoinverse
         -- matrix_t*matrix aka Mt * M aka MtM
-        local MtM = matrix_t * matrix
+        local MtM = matrix_t * value
         local invMtM = emergency_metatable(invertMatrix(MtM))
 
         return invMtM * matrix_t
       else -- If #columns > #rows (wide)
         -- matrix_t * inverse(matrix_t*matrix) = matrix_pseudoinverse
         -- matrix*matrix_t aka M * Mt aka Mt
-        local MMt = matrix * matrix_t
+        local MMt = value * matrix_t
         local invMMt = emergency_metatable(invertMatrix(MMt))
 
         return matrix_t * invMMt
@@ -1167,138 +1165,130 @@ function matrix:find(needle, initx, inity)
   end
 end
 
-function matrix:insertRow(points, position)
-  if not (#points == self.Size.B) then
-    error("Attempt to insert row with invalid number of points")
-  end
-  if not (position) or type(position) ~= "number" then position = #self.Contents end
-  if (position <= 0) or (position > self.Size.B + 1) then
-    error("Attempt to insert row at invalid position")
-  end
+-- function matrix:insertRow(points, position)
+--   if not (#points == self.Size.B) then
+--     error("Attempt to insert row with invalid number of points")
+--   end
+--   if not (position) or type(position) ~= "number" then position = #self.Contents end
+--   if (position <= 0) or (position > self.Size.B + 1) then
+--     error("Attempt to insert row at invalid position")
+--   end
 
-  if (self.Contents[position]) then
-    -- Shift every row down one
-    for i = #self.Contents, position, -1 do
-      self.Contents[i + 1] = self.Contents[i]
-    end
-  end
+--   if (self.Contents[position]) then
+--     -- Shift every row down one
+--     for i = #self.Contents, position, -1 do
+--       self.Contents[i + 1] = self.Contents[i]
+--     end
+--   end
 
-  self.Contents[position] = newRow(#self.Contents, self.Size.B, 0)
+--   self.Contents[position] = newRow(#self.Contents, self.Size.B, 0)
 
-  for i, point in ipairs(points) do
-    self.Contents[position][i] = point or point.Value
-  end
+--   for i, point in ipairs(points) do
+--     self.Contents[position][i] = point or point.Value
+--   end
 
-  self.Size.B = 1 + self.Size.B
+--   self.Size.B = 1 + self.Size.B
 
-  return self
-end
+--   return self
+-- end
 
-function matrix:removeRow(position)
-  if not (position) or type(position) ~= "number" then position = #self.Contents end
-  if (position <= 0) or (position > self.Size.B) then
-    error("Attempt to remove row at invalid position")
-  end
-  if self.Size.B == 1 then
-    error("Attempt to remove row from Matrix with one row")
-  end
+-- function matrix:removeRow(position)
+--   if not (position) or type(position) ~= "number" then position = #self.Contents end
+--   if (position <= 0) or (position > self.Size.B) then
+--     error("Attempt to remove row at invalid position")
+--   end
+--   if self.Size.B == 1 then
+--     error("Attempt to remove row from Matrix with one row")
+--   end
 
-  -- shift every row below this position up
-  for i = position, #self.Contents do
-    if not (i == 1) then
-      self.Contents[i - 1] = self.Contents[i]
+--   -- shift every row below this position up
+--   for i = position, #self.Contents do
+--     if not (i == 1) then
+--       self.Contents[i - 1] = self.Contents[i]
 
-      if i == #self.Contents then
-        table.remove(self.Contents, i)
-      end
-    else
-      table.remove(self.Contents, i)
-    end
-  end
+--       if i == #self.Contents then
+--         table.remove(self.Contents, i)
+--       end
+--     else
+--       table.remove(self.Contents, i)
+--     end
+--   end
 
-  self.Size.B = self.Size.B - 1
+--   self.Size.B = self.Size.B - 1
 
-  return self
-end
+--   return self
+-- end
 
-function matrix:insertColumn(points, position)
-  if not (#points == self.Size.A) then
-    error("Attempt to insert column with invalid number of points")
-  end
-  if not (position) or type(position) ~= "number" then position = self.Size.A + 1 end
-  if (position <= 0) or (position > self.Size.A + 1) then
-    error("Attempt to insert column at invalid position")
-  end
+-- function matrix:insertColumn(points, position)
+--   if not (#points == self.Size.A) then
+--     error("Attempt to insert column with invalid number of points")
+--   end
+--   if not (position) or type(position) ~= "number" then position = self.Size.A + 1 end
+--   if (position <= 0) or (position > self.Size.A + 1) then
+--     error("Attempt to insert column at invalid position")
+--   end
 
-  if (self.Size.A >= position) then
-    -- Shift every column right one
-    for i = 1, self.Size.B do
-      self.Contents[i][position].Position.X = 1 + self.Contents[i][position].Position.X
-    end
-  end
+--   if (self.Size.A >= position) then
+--     -- Shift every column right one
+--     for i = 1, self.Size.B do
+--       self.Contents[i][position].Position.X = 1 + self.Contents[i][position].Position.X
+--     end
+--   end
 
-  -- Set every value with x = position to corresponding point in table
-  for y, row in ipairs(self.Contents) do
-    local point = points[y]
-    if point then
-      row[position].Value = point or point.Value
-    end
-  end
-  self.Size.A = 1 + self.Size.A
+--   -- Set every value with x = position to corresponding point in table
+--   for y, row in ipairs(self.Contents) do
+--     local point = points[y]
+--     if point then
+--       row[position].Value = point or point.Value
+--     end
+--   end
+--   self.Size.A = 1 + self.Size.A
 
-  return self
-end
+--   return self
+-- end
 
-function matrix:removeColumn(position)
-  if not (position) or type(position) ~= "number" then position = #self.Contents end
-  if (position <= 0) or (position > self.Size.A) then
-    error("Attempt to remove row at invalid position")
-  end
-  if self.Size.A == 1 then
-    error("Attempt to remove column from Matrix with one column")
-  end
+-- function matrix:removeColumn(position)
+--   if not (position) or type(position) ~= "number" then position = #self.Contents end
+--   if (position <= 0) or (position > self.Size.A) then
+--     error("Attempt to remove row at invalid position")
+--   end
+--   if self.Size.A == 1 then
+--     error("Attempt to remove column from Matrix with one column")
+--   end
 
-  -- shift every column to the right this position left one
-  for x = position, self.Size.A, 1 do
-    for _, row in ipairs(self.Contents) do
-      row[x].Position.X = row[x].Position.X - 1
+--   -- shift every column to the right this position left one
+--   for x = position, self.Size.A, 1 do
+--     for _, row in ipairs(self.Contents) do
+--       row[x].Position.X = row[x].Position.X - 1
 
-      if row[x].Position.X == 0 then
-        table.remove(row, x)
-      end
-    end
-  end
+--       if row[x].Position.X == 0 then
+--         table.remove(row, x)
+--       end
+--     end
+--   end
 
 
-  for i = position, #self.Contents do
-    if not (i == 1) then
-      self.Contents[i - 1] = self.Contents[i]
+--   for i = position, #self.Contents do
+--     if not (i == 1) then
+--       self.Contents[i - 1] = self.Contents[i]
 
-      if i == #self.Contents then
-        self.Contents[i] = { Maximum = 0, Minimum = 0 }
-      end
-    end
-  end
+--       if i == #self.Contents then
+--         self.Contents[i] = { Maximum = 0, Minimum = 0 }
+--       end
+--     end
+--   end
 
-  self.Size.A = self.Size.A - 1
+--   self.Size.A = self.Size.A - 1
 
-  return self
-end
+--   return self
+-- end
 
 function matrix:isSingular()
-  if self:getDeterminant() == 0 then
-    return true
-  else
-    return false
-  end
+  return (self:getDeterminant() == 0)
 end
 
 function matrix:isInvertible()
-  if self:getDeterminant() == 0 then
-    return false
-  else
-    return true
-  end
+    return not(self:getDeterminant() == 0)
 end
 
 function matrix.zero(columns, rows)
@@ -1309,10 +1299,13 @@ function matrix.zero(columns, rows)
 end
 
 function matrix.one(columns, rows)
-  if not (columns) or not (rows) then columns, rows = 2, 2 end
+    if not (columns) then columns = 2 end
+    if not (rows) then rows = 2 end
+    return matrix.new(columns, rows, 1)
+end
 
-  local newMatrix = matrix.new(columns, rows, 1)
-  return newMatrix
+function matrix.enumerate(t)
+    return enumerate(t)
 end
 
 return matrix
