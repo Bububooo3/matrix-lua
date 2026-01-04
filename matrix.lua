@@ -2,7 +2,7 @@ print("Start:", os.clock())
 -- DataType
 -- Created by Richard Scott: [Dynamo (@Roller_Bott) on Roblox]
 -- Created 4/18/25
--- Last Updated 11/01/25
+-- Last Updated 1/04/2026
 -- these notes keep me sane
 
 --[[
