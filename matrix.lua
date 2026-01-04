@@ -117,7 +117,7 @@ end
 local function invertMatrix(oldmatrix) -- Gauss-Jordan Matrix Inversion (this stuff is useful, but I am going to have an aneurysm trying to code it)
   local mclone = cloneMatrix(oldmatrix)
   local msize = { A = oldmatrix.Size.A, B = oldmatrix.Size.B }
-  local midentity = createIdentityMatrix(msize.A) -- A or B doesn't matter bc it's squared
+  local midentity = createIdentityMatrix(msize.A) -- A or B doesn't matter bc it's square
 
 
   for i = 1, msize.A do
