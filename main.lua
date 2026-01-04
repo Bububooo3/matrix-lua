@@ -1,5 +1,5 @@
 -- RUNTIME CODE --
-local Matrix = require("matrix")
+local Matrix = matrix
 print("Init: ", os.clock())
 
 local new = Matrix.new(3,3,1)
@@ -10,9 +10,3 @@ print(new.." times "..other.." equals")
 print(new*other)
 
 print((new+1).."\n"..(1+new))
-
-for x, y, v in Matrix.enumerate(new) do
-    print(x, y..": "..v)
-end
-
-new()
