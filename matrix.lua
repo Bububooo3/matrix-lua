@@ -7,12 +7,15 @@ print("Start:", os.clock())
 
 --[[
 TODO:
---> Replace nesting with guard clauses
+--> Replace nesting with guard clauses (started this i think)
 --> Make methods more efficient by using enumerate()
 --> Flat arrays
---> Finish all methods
---> More efficient error system
+--> Finish all methods (detailed below) and maybe start doing a derivative vector lib!
+--> LOSE THE GOTOS (we wanna be able to use this in Roblox too just for fun bc where else r we using this)
+--> On that note, make it compatible with Roblox's CFrame lib too!
+--> More efficient error system (like some constants pls maybe a dictionaty)
 --> Rewrite code without loops (polynomial time vs exponential time)
+--> Use more efficient stuff like bit manipulation etc to make it even faster
 ]]
 
 -- Matrix Class Library
