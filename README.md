@@ -10,3 +10,4 @@ Holy cow guys I just did some Git magic on VSC bc somehow the timeline became a 
 
 
 And the rest is history...
+(the name change is my username change)
