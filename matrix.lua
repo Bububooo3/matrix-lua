@@ -8,7 +8,7 @@ print("Start:", os.clock())
 --[[
 TODO:
 --> Replace nesting with guard clauses (started this i think)
---> Make methods more efficient by using enumerate()
+--> Make methods more efficient by using enumerate() (like simplify all the nested for loops)
 --> Flat arrays
 --> Finish all methods (detailed below) and maybe start doing a derivative vector lib!
 --> LOSE THE GOTOS (we wanna be able to use this in Roblox too just for fun bc where else r we using this)
